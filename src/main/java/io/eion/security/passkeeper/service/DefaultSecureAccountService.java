@@ -20,6 +20,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -128,7 +131,7 @@ public class DefaultSecureAccountService implements SecureAccountService {
         }
     }
 
-    public void authenticateUser(final String username, final String masterPassword) {
+    private void authenticateUser(final String username, final String masterPassword) {
         final File keyStoreFile = this.createKeyStoreFile(username);
 
         if (keyStoreFile.exists()) {
@@ -193,13 +196,51 @@ public class DefaultSecureAccountService implements SecureAccountService {
     }
 
     @Override
+    public List<String> getSecureAccountAliases(final SecureAccountRequest secureAccountRequest) {
+
+        final KeyStore keyStore;
+        try {
+            keyStore = this.loadOrCreateKeyStore(secureAccountRequest);
+            final List<String> aliasList = new ArrayList<>();
+            final Enumeration<String> aliases = keyStore.aliases();
+
+            while (aliases.hasMoreElements()) {
+                aliasList.add(aliases.nextElement());
+            }
+
+            return aliasList;
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+            throw new SecureAccountException(e.getMessage(), e);
+        }
+    }
+
+    @Override
     public SecureAccount updateSecureAccount(final SecureAccountRequest secureAccountRequest, final String passwordToUpdate) {
         return null;
     }
 
     @Override
     public Optional<SecureAccount> deleteSecureAccount(final SecureAccountRequest secureAccountRequest) {
-        return null;
+        Assert.notNull(secureAccountRequest);
+
+        final Optional<SecureAccount> secureAccount = this.getSecureAccount(secureAccountRequest);
+
+        if (secureAccount.isPresent()) {
+            try {
+                final KeyStore keyStore = this.loadOrCreateKeyStore(secureAccountRequest);
+                keyStore.deleteEntry(secureAccountRequest.getAccountAlias());
+                this.saveKeyStore(secureAccountRequest, keyStore);
+                this.secureAccountStore.deleteSecureAccountPassword(secureAccountRequest);
+
+            } catch (Exception e) {
+                final String errorMsg = "Error while trying to delete secure account: " + e.getMessage();
+                logger.error(errorMsg, e);
+                throw new SecureAccountException(errorMsg, e);
+            }
+        }
+
+        return secureAccount;
     }
 
     /**

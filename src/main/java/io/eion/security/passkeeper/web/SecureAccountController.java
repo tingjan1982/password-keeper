@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -40,6 +41,8 @@ public class SecureAccountController {
     public ResponseEntity<SecureAccountResponse> createUser(@RequestParam("username") final String username,
                                                             @RequestParam("masterPassword") String masterPassword) {
 
+        logger.debug("Create user: {}", username);
+
         final SecureAccount defaultSecureAccount = this.secureAccountService.createUser(username, masterPassword);
 
         final String message = "Your user is created successfully. A default account is created for you to try out secure account retrieval.";
@@ -50,6 +53,8 @@ public class SecureAccountController {
     @RequestMapping(value = "/{username}/markDelete", method = RequestMethod.DELETE)
     public ResponseEntity<String> markDeleteUser(@PathVariable("username") final String username,
                                                  @RequestParam("masterPassword") String masterPassword) {
+
+        logger.debug("Mark delete user: {}", username);
 
         this.secureAccountService.markDeleteUser(username, masterPassword);
         return ResponseEntity.ok("User has been marked as deleted. You need to confirm this by calling DELETE /{username}.");
@@ -64,11 +69,30 @@ public class SecureAccountController {
      */
     @RequestMapping(value = "/{username}", method = RequestMethod.DELETE)
     public ResponseEntity<String> deleteUser(@PathVariable("username") final String username,
-                                             @RequestParam("masterPassword") String masterPassword) {
+                                             @RequestParam("masterPassword") final String masterPassword) {
+
+        logger.debug("Delete user: {}", username);
 
         this.secureAccountService.deleteUser(username, masterPassword);
         return ResponseEntity.ok("User has been deleted successfully.");
     }
+
+
+    @RequestMapping(value = "/{username}/accounts", method = RequestMethod.POST)
+    public ResponseEntity<SecureAccountResponse> createSecureAccount(@PathVariable final String username,
+                                                                     @RequestParam("accountAlias") final String accountAlias,
+                                                                     @RequestParam("masterPassword") final String masterPassword,
+                                                                     @RequestParam("password") final String passwordToEncrypt) {
+
+        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        logger.debug("Create secure account: {}", request);
+
+        final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(request, passwordToEncrypt);
+
+        final SecureAccountResponse secureAccountResponse = new SecureAccountResponse("Secure account is created.", secureAccount);
+        return ResponseEntity.ok(secureAccountResponse);
+    }
+
 
     /**
      * Gets SecureAccount for user identified as username.
@@ -80,20 +104,55 @@ public class SecureAccountController {
      */
     @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.GET)
     public ResponseEntity<?> getSecureAccount(@PathVariable final String username,
-                                                          @PathVariable final String accountAlias,
-                                                          @RequestParam("masterPassword") String masterPassword) {
-
-        logger.info("Username: {}, alias: {}, masterPassword: {}", username, accountAlias, "xxxxx");
+                                              @PathVariable final String accountAlias,
+                                              @RequestParam("masterPassword") final String masterPassword) {
 
         final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        logger.debug("Get secure account: {}", request);
+
         final Optional<SecureAccount> secureAccount = this.secureAccountService.getSecureAccount(request);
 
         if (secureAccount.isPresent()) {
             return ResponseEntity.ok(secureAccount.get());
         }
 
-        return new ResponseEntity<>("User is not found: " + username, HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>("Secure account is not found: " + accountAlias, HttpStatus.NOT_FOUND);
     }
 
+    @RequestMapping(value = "/{username}/accounts", method = RequestMethod.GET)
+    public ResponseEntity<?> getSecureAccountAliases(@PathVariable final String username,
+                                                     @RequestParam("masterPassword") final String masterPassword) {
 
+        logger.debug("Get secure account aliases: {}", username);
+
+        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, null);
+        final List<String> secureAccountAliases = this.secureAccountService.getSecureAccountAliases(request);
+
+        return ResponseEntity.ok(secureAccountAliases);
+    }
+
+    /**
+     * Deletes SecureAccount referenced by account alias.
+     *
+     * @param username
+     * @param accountAlias
+     * @param masterPassword
+     * @return
+     */
+    @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.DELETE)
+    public ResponseEntity<?> deleteSecureAccount(@PathVariable final String username,
+                                                 @PathVariable final String accountAlias,
+                                                 @RequestParam("masterPassword") final String masterPassword) {
+
+        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        logger.debug("Delete secure account: {}", request);
+
+        final Optional<SecureAccount> secureAccount = this.secureAccountService.deleteSecureAccount(request);
+
+        if (secureAccount.isPresent()) {
+            return ResponseEntity.ok("Secure account has been deleted: " + accountAlias);
+        } else {
+            return new ResponseEntity<>("Secure account is not found: " + accountAlias, HttpStatus.NOT_FOUND);
+        }
+    }
 }

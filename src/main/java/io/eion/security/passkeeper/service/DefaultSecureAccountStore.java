@@ -15,6 +15,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,23 +44,15 @@ class DefaultSecureAccountStore implements SecureAccountStore {
 
         final File secureAccountFile = this.createSecureAccountFile(secureAccount.getUsername());
         Map<String, String> secureAccountMap = this.loadSecureAccountMap(secureAccountFile);
-        secureAccountMap.put(secureAccount.getAccountAlias(), secureAccount.getEncryptedPassword());
+        final String accountAlias = secureAccount.getAccountAlias();
 
-        try (FileWriter fileWriter = new FileWriter(secureAccountFile)) {
-            final String secureAccountJSON = this.gson.toJson(secureAccountMap);
-            IOUtils.write(secureAccountJSON, fileWriter);
-            fileWriter.flush();
+        if (secureAccountMap.get(accountAlias) != null) {
+            throw new Exception("Account alias already exist: " + accountAlias);
         }
-    }
 
-    @Override
-    public Optional<String> getSecureAccountPassword(final SecureAccountRequest secureAccountRequest) throws Exception {
-        Assert.notNull(secureAccountRequest);
+        secureAccountMap.put(accountAlias, secureAccount.getEncryptedPassword());
 
-        final File secureAccountFile = this.createSecureAccountFile(secureAccountRequest.getUsername());
-        final Map<String, String> secureAccountMap = this.loadSecureAccountMap(secureAccountFile);
-        String secureAccountPassword = secureAccountMap.get(secureAccountRequest.getAccountAlias());
-        return Optional.ofNullable(secureAccountPassword);
+        this.saveSecureAccountFile(secureAccountFile, secureAccountMap);
     }
 
     @Override
@@ -75,6 +68,27 @@ class DefaultSecureAccountStore implements SecureAccountStore {
                 throw new SecureAccountException("Secure account store for user is not deleted for some reason: " + username);
             }
         }
+    }
+
+    @Override
+    public Optional<String> getSecureAccountPassword(final SecureAccountRequest secureAccountRequest) throws Exception {
+        Assert.notNull(secureAccountRequest);
+
+        final File secureAccountFile = this.createSecureAccountFile(secureAccountRequest.getUsername());
+        final Map<String, String> secureAccountMap = this.loadSecureAccountMap(secureAccountFile);
+        String secureAccountPassword = secureAccountMap.get(secureAccountRequest.getAccountAlias());
+        return Optional.ofNullable(secureAccountPassword);
+    }
+
+    @Override
+    public void deleteSecureAccountPassword(final SecureAccountRequest secureAccountRequest) throws Exception {
+        Assert.notNull(secureAccountRequest);
+
+        final File secureAccountFile = this.createSecureAccountFile(secureAccountRequest.getUsername());
+        final Map<String, String> secureAccountMap = this.loadSecureAccountMap(secureAccountFile);
+        final String removed = secureAccountMap.remove(secureAccountRequest.getAccountAlias());
+        logger.info("Removed secure account: {}, encrypted: {}", secureAccountRequest.getAccountAlias(), removed);
+        this.saveSecureAccountFile(secureAccountFile, secureAccountMap);
     }
 
     private Map<String, String> loadSecureAccountMap(final File secureAccountFile) throws Exception {
@@ -93,6 +107,17 @@ class DefaultSecureAccountStore implements SecureAccountStore {
         }
 
         return secureAccountMap;
+    }
+
+    private void saveSecureAccountFile(final File secureAccountFile, final Map<String, String> secureAccountMap) throws IOException {
+        Assert.notNull(secureAccountFile);
+        Assert.notNull(secureAccountMap);
+
+        try (FileWriter fileWriter = new FileWriter(secureAccountFile)) {
+            final String secureAccountJSON = this.gson.toJson(secureAccountMap);
+            IOUtils.write(secureAccountJSON, fileWriter);
+            fileWriter.flush();
+        }
     }
 
     private File createSecureAccountFile(final String username) {

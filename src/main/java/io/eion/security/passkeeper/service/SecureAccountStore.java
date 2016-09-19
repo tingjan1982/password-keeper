@@ -15,4 +15,6 @@ public interface SecureAccountStore {
     void deleteSecureAccountStore(String username) throws Exception;
 
     Optional<String> getSecureAccountPassword(SecureAccountRequest secureAccountRequest) throws Exception;
+
+    void deleteSecureAccountPassword(SecureAccountRequest secureAccountRequest) throws Exception;
 }
