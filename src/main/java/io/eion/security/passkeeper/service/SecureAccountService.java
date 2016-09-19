@@ -10,10 +10,18 @@ import java.util.Optional;
  */
 public interface SecureAccountService {
 
+    SecureAccount createUser(String username, String masterPassword);
+
+    void markDeleteUser(String username, String masterPassword);
+
+    void deleteUser(String username, String masterPassword);
+
     SecureAccount createSecureAccount(SecureAccountRequest secureAccountRequest, String passwordToEncrypt);
 
     Optional<SecureAccount> getSecureAccount(SecureAccountRequest secureAccountRequest);
 
     SecureAccount updateSecureAccount(SecureAccountRequest secureAccountRequest, String passwordToUpdate);
+
+    Optional<SecureAccount> deleteSecureAccount(SecureAccountRequest secureAccountRequest);
 
 }

@@ -12,5 +12,7 @@ public interface SecureAccountStore {
 
     void storeSecureAccount(SecureAccount secureAccount) throws Exception;
 
+    void deleteSecureAccountStore(String username) throws Exception;
+
     Optional<String> getSecureAccountPassword(SecureAccountRequest secureAccountRequest) throws Exception;
 }

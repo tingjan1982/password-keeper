@@ -8,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.support.PeriodicTrigger;
 import org.springframework.security.crypto.codec.Hex;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -19,6 +21,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.security.KeyStore;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Reference to create keystore and create secret key entry:
@@ -42,12 +47,101 @@ public class DefaultSecureAccountService implements SecureAccountService {
     @Value("${security.keystore.location}")
     private String keystoreLocation;
 
+    @Value("${security.delete.delay}")
+    private int deleteDelay;
+
     @Autowired
     private SecureAccountStore secureAccountStore;
 
     @Autowired
     private PasswordEncryptor passwordEncryptor;
 
+    @Autowired
+    private TaskScheduler taskScheduler;
+
+    private ConcurrentHashMap<String, ScheduledFuture> usersMarkDeleted = new ConcurrentHashMap<>();
+
+
+    @Override
+    public SecureAccount createUser(final String username, final String masterPassword) {
+
+        final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, "default");
+        return this.createSecureAccount(secureAccountRequest, "password");
+    }
+
+    /**
+     * Marks the user as deleted before the actual user deletion can happen.
+     *
+     * @param username
+     * @param masterPassword
+     */
+    @Override
+    public void markDeleteUser(final String username, final String masterPassword) {
+
+        this.authenticateUser(username, masterPassword);
+        final long delay = TimeUnit.SECONDS.toMillis(this.deleteDelay);
+        final PeriodicTrigger trigger = new PeriodicTrigger(delay);
+        trigger.setInitialDelay(delay);
+
+        final ScheduledFuture<?> future = this.taskScheduler.schedule(() -> {
+            logger.info("Remove user from the mark deletion list");
+            final ScheduledFuture retrievedFuture = this.usersMarkDeleted.remove(username);
+
+            if (retrievedFuture != null) {
+                retrievedFuture.cancel(true);
+            }
+
+        }, trigger);
+
+        this.usersMarkDeleted.putIfAbsent(username, future);
+    }
+
+    /**
+     * Deletes the user by first check if keystore exists, and verify the password by
+     * loading the store with the master password.
+     *
+     * @param username
+     * @param masterPassword
+     */
+    @Override
+    public void deleteUser(final String username, final String masterPassword) {
+
+        final ScheduledFuture userFuture = this.usersMarkDeleted.get(username);
+
+        if (userFuture == null) {
+            throw new SecureAccountException("You need to mark delete this user before you can actually delete the user: " + username);
+        }
+
+        final File keyStoreFile = this.createKeyStoreFile(username);
+        this.authenticateUser(username, masterPassword);
+        final boolean deleted = keyStoreFile.delete();
+
+        if (!deleted) {
+            throw new SecureAccountException("Delete user failed: " + username);
+        }
+
+        try {
+            this.secureAccountStore.deleteSecureAccountStore(username);
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+            throw new SecureAccountException(e.getMessage(), e);
+        }
+    }
+
+    public void authenticateUser(final String username, final String masterPassword) {
+        final File keyStoreFile = this.createKeyStoreFile(username);
+
+        if (keyStoreFile.exists()) {
+            final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, null);
+            try {
+                this.loadOrCreateKeyStore(secureAccountRequest);
+            } catch (Exception e) {
+                throw new SecureAccountException("User is not authenticated: " + e.getMessage(), e);
+            }
+        } else {
+            throw new SecureAccountException("User does not exist: " + username);
+        }
+    }
 
     @Override
     public SecureAccount createSecureAccount(final SecureAccountRequest secureAccountRequest, final String passwordToEncrypt) {
@@ -68,6 +162,7 @@ public class DefaultSecureAccountService implements SecureAccountService {
             return secureAccount;
 
         } catch (Exception e) {
+            logger.error(e.getMessage(), e);
             throw new SecureAccountException(e.getMessage(), e);
         }
     }
@@ -92,22 +187,24 @@ public class DefaultSecureAccountService implements SecureAccountService {
             return Optional.ofNullable(secureAccount);
 
         } catch (Exception e) {
+            logger.error(e.getMessage(), e);
             throw new SecureAccountException(e.getMessage(), e);
         }
     }
 
     @Override
     public SecureAccount updateSecureAccount(final SecureAccountRequest secureAccountRequest, final String passwordToUpdate) {
+        return null;
+    }
 
-
-
-
+    @Override
+    public Optional<SecureAccount> deleteSecureAccount(final SecureAccountRequest secureAccountRequest) {
         return null;
     }
 
     /**
      * Load or create a secret key for an user on a given account alias found in SecureAccountRequest.
-     *
+     * <p>
      * Reference on Base64 vs Hex encoding since we use hex encoding for secret key:
      * http://stackoverflow.com/questions/3183841/base64-vs-hex-for-sending-binary-content-over-the-internet-in-xml-doc
      *
@@ -138,9 +235,10 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
     private void saveKeyStore(final SecureAccountRequest secureAccountRequest, final KeyStore keyStore) throws Exception {
         Assert.notNull(secureAccountRequest);
+        Assert.notNull(secureAccountRequest.getUsername());
         Assert.notNull(keyStore);
 
-        final File keyStoreFile = this.createKeyStoreFile(secureAccountRequest);
+        final File keyStoreFile = this.createKeyStoreFile(secureAccountRequest.getUsername());
         try (final FileOutputStream stream = new FileOutputStream(keyStoreFile)) {
             keyStore.store(stream, secureAccountRequest.getMasterPassword().toCharArray());
         }
@@ -157,7 +255,7 @@ public class DefaultSecureAccountService implements SecureAccountService {
         Assert.notNull(secureAccountRequest.getMasterPassword());
 
         final KeyStore keyStore = KeyStore.getInstance("JCEKS");
-        final File keystoreFile = this.createKeyStoreFile(secureAccountRequest);
+        final File keystoreFile = this.createKeyStoreFile(secureAccountRequest.getUsername());
         final char[] masterPasswordArr = secureAccountRequest.getMasterPassword().toCharArray();
 
         if (keystoreFile.exists()) {
@@ -175,7 +273,8 @@ public class DefaultSecureAccountService implements SecureAccountService {
         return keyStore;
     }
 
-    private File createKeyStoreFile(final SecureAccountRequest secureAccountRequest) {
-        return new File(this.keystoreLocation, secureAccountRequest.getUsername() + KEYSTORE_EXT);
+    private File createKeyStoreFile(final String username) {
+        Assert.notNull(username);
+        return new File(this.keystoreLocation, username + KEYSTORE_EXT);
     }
 }

@@ -62,6 +62,21 @@ class DefaultSecureAccountStore implements SecureAccountStore {
         return Optional.ofNullable(secureAccountPassword);
     }
 
+    @Override
+    public void deleteSecureAccountStore(final String username) throws Exception {
+        Assert.notNull(username);
+
+        final File secureAccountFile = this.createSecureAccountFile(username);
+
+        if (secureAccountFile.exists()) {
+            final boolean delete = secureAccountFile.delete();
+
+            if (!delete) {
+                throw new SecureAccountException("Secure account store for user is not deleted for some reason: " + username);
+            }
+        }
+    }
+
     private Map<String, String> loadSecureAccountMap(final File secureAccountFile) throws Exception {
         Assert.notNull(secureAccountFile);
         Map<String, String> secureAccountMap = new HashMap<>();
