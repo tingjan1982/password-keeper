@@ -45,7 +45,7 @@ public class SecureAccountController {
 
         final SecureAccount defaultSecureAccount = this.secureAccountService.createUser(username, masterPassword);
 
-        final String message = "Your user is created successfully. A default account is created for you to try out secure account retrieval.";
+        final String message = username + " is created successfully with a default account alias - default/password.";
         final SecureAccountResponse secureAccountResponse = new SecureAccountResponse(message, defaultSecureAccount);
         return ResponseEntity.ok(secureAccountResponse);
     }
@@ -129,6 +129,19 @@ public class SecureAccountController {
         final List<String> secureAccountAliases = this.secureAccountService.getSecureAccountAliases(request);
 
         return ResponseEntity.ok(secureAccountAliases);
+    }
+
+    @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.POST)
+    public ResponseEntity<SecureAccount> updateSecureAccount(@PathVariable final String username,
+                                              @PathVariable final String accountAlias,
+                                              @RequestParam("masterPassword") final String masterPassword,
+                                              @RequestParam("password") final String passwordToUpdate) {
+
+        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        logger.debug("Update secure account: {}", request);
+
+        final SecureAccount secureAccount = this.secureAccountService.updateSecureAccount(request, passwordToUpdate);
+        return ResponseEntity.ok(secureAccount);
     }
 
     /**

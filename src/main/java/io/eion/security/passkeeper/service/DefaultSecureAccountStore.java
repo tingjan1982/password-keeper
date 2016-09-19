@@ -45,11 +45,6 @@ class DefaultSecureAccountStore implements SecureAccountStore {
         final File secureAccountFile = this.createSecureAccountFile(secureAccount.getUsername());
         Map<String, String> secureAccountMap = this.loadSecureAccountMap(secureAccountFile);
         final String accountAlias = secureAccount.getAccountAlias();
-
-        if (secureAccountMap.get(accountAlias) != null) {
-            throw new Exception("Account alias already exist: " + accountAlias);
-        }
-
         secureAccountMap.put(accountAlias, secureAccount.getEncryptedPassword());
 
         this.saveSecureAccountFile(secureAccountFile, secureAccountMap);

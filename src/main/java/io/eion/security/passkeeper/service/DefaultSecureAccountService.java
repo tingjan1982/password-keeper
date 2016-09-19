@@ -47,6 +47,10 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
     private static final String KEYSTORE_EXT = ".jceks";
 
+    private static final String DEFAULT_ACCOUNT = "default";
+
+    private static final String DEFAULT_PASSWORD = "password";
+
     @Value("${security.keystore.location}")
     private String keystoreLocation;
 
@@ -68,8 +72,14 @@ public class DefaultSecureAccountService implements SecureAccountService {
     @Override
     public SecureAccount createUser(final String username, final String masterPassword) {
 
-        final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, "default");
-        return this.createSecureAccount(secureAccountRequest, "password");
+        final File keyStoreFile = this.createKeyStoreFile(username);
+
+        if (keyStoreFile.exists()) {
+            throw new SecureAccountException("User already exists: " + username);
+        }
+
+        final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, DEFAULT_ACCOUNT);
+        return this.createSecureAccount(secureAccountRequest, DEFAULT_PASSWORD);
     }
 
     /**
@@ -87,7 +97,7 @@ public class DefaultSecureAccountService implements SecureAccountService {
         trigger.setInitialDelay(delay);
 
         final ScheduledFuture<?> future = this.taskScheduler.schedule(() -> {
-            logger.info("Remove user from the mark deletion list");
+            logger.info("Remove user from the mark deletion list: {}", username);
             final ScheduledFuture retrievedFuture = this.usersMarkDeleted.remove(username);
 
             if (retrievedFuture != null) {
@@ -151,23 +161,12 @@ public class DefaultSecureAccountService implements SecureAccountService {
         Assert.notNull(secureAccountRequest);
         Assert.notNull(passwordToEncrypt);
 
-        try {
-            final String encodedSecretKey = this.loadOrCreateSecretKey(secureAccountRequest);
-            logger.info("Resolved secret key: {}", encodedSecretKey);
+        final Optional<SecureAccount> retrievedSecureAccount = this.getSecureAccount(secureAccountRequest);
+        retrievedSecureAccount.ifPresent(secureAccount -> {
+            throw new SecureAccountException("Secure account already exists: " + secureAccountRequest.getAccountAlias());
+        });
 
-            final String masterPassword = secureAccountRequest.getMasterPassword();
-            final String encryptPassword = this.passwordEncryptor.encryptPassword(encodedSecretKey, masterPassword, passwordToEncrypt);
-            logger.info("Encrypted password: {}", encryptPassword);
-
-            final SecureAccount secureAccount = new SecureAccount(secureAccountRequest.getUsername(), secureAccountRequest.getAccountAlias(), encryptPassword, passwordToEncrypt);
-            this.secureAccountStore.storeSecureAccount(secureAccount);
-
-            return secureAccount;
-
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
-            throw new SecureAccountException(e.getMessage(), e);
-        }
+        return this.updateSecureAccount(secureAccountRequest, passwordToEncrypt);
     }
 
     @Override
@@ -217,7 +216,24 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
     @Override
     public SecureAccount updateSecureAccount(final SecureAccountRequest secureAccountRequest, final String passwordToUpdate) {
-        return null;
+
+        try {
+            final String encodedSecretKey = this.loadOrCreateSecretKey(secureAccountRequest);
+            logger.info("Resolved secret key: {}", encodedSecretKey);
+
+            final String masterPassword = secureAccountRequest.getMasterPassword();
+            final String encryptPassword = this.passwordEncryptor.encryptPassword(encodedSecretKey, masterPassword, passwordToUpdate);
+            logger.info("Encrypted password: {}", encryptPassword);
+
+            final SecureAccount secureAccount = new SecureAccount(secureAccountRequest.getUsername(), secureAccountRequest.getAccountAlias(), encryptPassword, passwordToUpdate);
+            this.secureAccountStore.storeSecureAccount(secureAccount);
+
+            return secureAccount;
+
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+            throw new SecureAccountException(e.getMessage(), e);
+        }
     }
 
     @Override
