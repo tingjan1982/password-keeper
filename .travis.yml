@@ -10,4 +10,5 @@ deploy:
   file: passkeeper-0.0.1-SNAPSHOT.jar
   skip_cleanup: true
   on:
-    repo: tingjan1982/password-keeper
+    tags: true
+    #repo: tingjan1982/password-keeper
