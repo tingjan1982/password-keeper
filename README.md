@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/tingjan1982/password-keeper.svg?branch=master)](https://travis-ci.org/tingjan1982/password-keeper)
+
 # password-keeper
 
 ## Features
