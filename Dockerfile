@@ -1,6 +1,7 @@
 # Reference from Spring Boot with Docker - https://spring.io/guides/gs/spring-boot-docker/
 
 FROM frolvlad/alpine-oraclejdk8:slim
+RUN apk update && apk add ca-certificates wget && update-ca-certificates && apk add openssl
 VOLUME /tmp
 VOLUME /tmp/keystores
 RUN wget https://github.com/tingjan1982/password-keeper/releases/download/travis-2/passkeeper-0.0.1-SNAPSHOT.jar -O passkeeper.jar
