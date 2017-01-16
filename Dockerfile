@@ -4,10 +4,11 @@ FROM frolvlad/alpine-oraclejdk8:slim
 RUN apk update && apk add ca-certificates wget && update-ca-certificates && apk add openssl
 VOLUME /tmp
 VOLUME /tmp/keystores
+
+# fix wget issue with SSL: https://github.com/Yelp/dumb-init/issues/73
 RUN wget https://github.com/tingjan1982/password-keeper/releases/download/travis-2/passkeeper-0.0.1-SNAPSHOT.jar -O passkeeper.jar
-#ADD target/passkeeper-0.0.1-SNAPSHOT.jar passkeeper.jar
 RUN sh -c 'touch /passkeeper.jar'
 ENV JAVA_OPTS="-Dsecurity.keystore.location=/tmp/keystores"
 
-# https://wiki.apache.org/tomcat/HowTo/FasterStartUp#Entropy_Source
+# Explains the java.security.egd property: https://wiki.apache.org/tomcat/HowTo/FasterStartUp#Entropy_Source
 ENTRYPOINT [ "sh", "-c", "java $JAVA_OPTS -Djava.security.egd=file:/dev/./urandom -jar /passkeeper.jar" ]
