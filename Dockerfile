@@ -3,7 +3,8 @@
 FROM frolvlad/alpine-oraclejdk8:slim
 VOLUME /tmp
 VOLUME /tmp/keystores
-ADD target/passkeeper-0.0.1-SNAPSHOT.jar passkeeper.jar
+RUN wget https://github.com/tingjan1982/password-keeper/releases/download/travis-2/passkeeper-0.0.1-SNAPSHOT.jar -O passkeeper.jar
+#ADD target/passkeeper-0.0.1-SNAPSHOT.jar passkeeper.jar
 RUN sh -c 'touch /passkeeper.jar'
 ENV JAVA_OPTS="-Dsecurity.keystore.location=/tmp/keystores"
 
