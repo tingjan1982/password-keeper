@@ -8,7 +8,7 @@ before_deploy:
   - git config --global user.name "Travis CI Auto Tag"
   #- export GIT_TAG=$TRAVIS_BRANCH-0.1.$TRAVIS_BUILD_NUMBER
   #- git tag $GIT_TAG -a -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER"
-  - export GIT_TAG=$TRAVIS_BRANCH-snapshot
+  - export GIT_TAG=$TRAVIS_BRANCH-snapshot2
   - git tag -a -f -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER" $GIT_TAG $TRAVIS_COMMIT
   - git push -q -f https://$CI_USER_TOKEN@github.com/tingjan1982/password-keeper --tags
 deploy:
@@ -26,7 +26,7 @@ after_deploy:
 branches:
   except:
     - /^*-[0-9]/
-    - /^*-snapshot/
+    - /^*-snapshot2/
 
 # Reference:
 
