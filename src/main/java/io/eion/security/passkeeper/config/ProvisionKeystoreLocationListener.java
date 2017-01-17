@@ -1,7 +1,3 @@
-/*
- * Copyright (C) 2018
- Digital River, Inc. All Rights Reserved.
- */
 package io.eion.security.passkeeper.config;
 
 import org.slf4j.Logger;
