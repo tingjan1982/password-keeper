@@ -25,6 +25,7 @@ deploy:
 branches:
   except:
     - /^*-[0-9]/
+    - /^*-snapshot/
 
 # Reference
 # travis CLI installation issues: https://github.com/travis-ci/travis.rb/issues/391
