@@ -6,8 +6,10 @@ script:
 before_deploy:
   - git config --global user.email "tingjan1982@gmail.com"
   - git config --global user.name "Travis CI Auto Tag"
-  - export GIT_TAG=$TRAVIS_BRANCH-0.1.$TRAVIS_BUILD_NUMBER
-  - git tag $GIT_TAG -a -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER"
+  #- export GIT_TAG=$TRAVIS_BRANCH-0.1.$TRAVIS_BUILD_NUMBER
+  #- git tag $GIT_TAG -a -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER"
+  - export GIT_TAG=$TRAVIS_BRANCH-snapshot
+  - git tag $GIT_TAG -a -f -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER"
   - git push -q https://$CI_USER_TOKEN@github.com/tingjan1982/password-keeper --tags
 deploy:
   provider: releases
