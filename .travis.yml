@@ -21,7 +21,8 @@ deploy:
     tags: false
     all_branches: true
     #repo: tingjan1982/password-keeper
-
+after_deploy:
+  - curl -H "Content-Type: application/json" --data '{"source_type": "Branch", "source_name": "master"}' -X POST https://registry.hub.docker.com/u/joelin/password-keeper/trigger/92d6043a-fbf4-4349-9fe4-c4ba0e891555/
 branches:
   except:
     - /^*-[0-9]/
@@ -30,3 +31,4 @@ branches:
 # Reference
 # travis CLI installation issues: https://github.com/travis-ci/travis.rb/issues/391
 # Setup GitHub API token for travis CI usage: https://docs.travis-ci.com/user/private-dependencies/#API-Token
+# Auto tag build for GitHub release: http://stackoverflow.com/questions/28217556/travis-ci-auto-tag-build-for-github-release

@@ -7,7 +7,7 @@ RUN apk update && apk add ca-certificates wget && update-ca-certificates && apk 
 
 VOLUME /tmp
 VOLUME /tmp/keystores
-RUN wget https://github.com/tingjan1982/password-keeper/releases/download/travis-2/passkeeper-0.0.1-SNAPSHOT.jar -O passkeeper.jar
+RUN wget https://github.com/tingjan1982/password-keeper/releases/download/master-snapshot/passkeeper-0.0.1-SNAPSHOT.jar -O passkeeper.jar
 RUN sh -c 'touch /passkeeper.jar'
 ENV JAVA_OPTS="-Dsecurity.keystore.location=/tmp/keystores"
 
