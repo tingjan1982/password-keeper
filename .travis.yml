@@ -20,5 +20,10 @@ deploy:
     all_branches: true
     #repo: tingjan1982/password-keeper
 
+branches:
+  except:
+    - /^*-[0-9]/
+
 # Reference
 # travis CLI installation issues: https://github.com/travis-ci/travis.rb/issues/391
+# Setup GitHub API token for travis CI usage: https://docs.travis-ci.com/user/private-dependencies/#API-Token
