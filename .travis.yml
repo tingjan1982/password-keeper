@@ -10,7 +10,7 @@ before_deploy:
   #- git tag $GIT_TAG -a -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER"
   - export GIT_TAG=$TRAVIS_BRANCH-snapshot
   - git tag $GIT_TAG -a -f -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER"
-  - git push -q https://$CI_USER_TOKEN@github.com/tingjan1982/password-keeper --tags
+  - git push -q -f https://$CI_USER_TOKEN@github.com/tingjan1982/password-keeper --tags
 deploy:
   provider: releases
   api_key:
