@@ -2,7 +2,7 @@
 
 # password-keeper
 
-> A REST API for managing passwords in a secured fashion.
+> A REST API for managing passwords in a secured fashion. 2
 
 ## Features
 
