@@ -10,15 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.PeriodicTrigger;
-import org.springframework.security.crypto.codec.Hex;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -45,17 +39,15 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultSecureAccountService.class);
 
-    private static final String KEYSTORE_EXT = ".jceks";
-
     private static final String DEFAULT_ACCOUNT = "default";
 
     private static final String DEFAULT_PASSWORD = "password";
 
-    @Value("${security.keystore.location}")
-    private String keystoreLocation;
-
     @Value("${security.delete.delay}")
     private int deleteDelay;
+
+    @Autowired
+    private KeystoreManager keystoreManager;
 
     @Autowired
     private SecureAccountStore secureAccountStore;
@@ -72,14 +64,15 @@ public class DefaultSecureAccountService implements SecureAccountService {
     @Override
     public SecureAccount createUser(final String username, final String masterPassword) {
 
-        final File keyStoreFile = this.createKeyStoreFile(username);
-
-        if (keyStoreFile.exists()) {
-            throw new SecureAccountException("User already exists: " + username);
-        }
-
         final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, DEFAULT_ACCOUNT);
-        return this.createSecureAccount(secureAccountRequest, DEFAULT_PASSWORD);
+        try {
+            final KeyStore keyStore = this.keystoreManager.createKeyStore(secureAccountRequest);
+            return this.createSecureAccount(secureAccountRequest, DEFAULT_PASSWORD);
+
+        } catch (Exception e) {
+            logger.error("Unexpected error while creating key store: " + e.getMessage(), e);
+            throw new SecureAccountException(e.getMessage(), e);
+        }
     }
 
     /**
@@ -91,7 +84,10 @@ public class DefaultSecureAccountService implements SecureAccountService {
     @Override
     public void markDeleteUser(final String username, final String masterPassword) {
 
-        this.authenticateUser(username, masterPassword);
+        if (this.usersMarkDeleted.containsKey(username)) {
+            return;
+        }
+
         final long delay = TimeUnit.SECONDS.toMillis(this.deleteDelay);
         final PeriodicTrigger trigger = new PeriodicTrigger(delay);
         trigger.setInitialDelay(delay);
@@ -125,34 +121,14 @@ public class DefaultSecureAccountService implements SecureAccountService {
             throw new SecureAccountException("You need to mark delete this user before you can actually delete the user: " + username);
         }
 
-        final File keyStoreFile = this.createKeyStoreFile(username);
-        this.authenticateUser(username, masterPassword);
-        final boolean deleted = keyStoreFile.delete();
-
-        if (!deleted) {
-            throw new SecureAccountException("Delete user failed: " + username);
-        }
-
         try {
-            this.secureAccountStore.deleteSecureAccountStore(username);
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
-            throw new SecureAccountException(e.getMessage(), e);
-        }
-    }
-
-    private void authenticateUser(final String username, final String masterPassword) {
-        final File keyStoreFile = this.createKeyStoreFile(username);
-
-        if (keyStoreFile.exists()) {
             final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, null);
-            try {
-                this.loadOrCreateKeyStore(secureAccountRequest);
-            } catch (Exception e) {
-                throw new SecureAccountException("User is not authenticated: " + e.getMessage(), e);
-            }
-        } else {
-            throw new SecureAccountException("User does not exist: " + username);
+            this.keystoreManager.deleteKeyStore(secureAccountRequest);
+            this.secureAccountStore.deleteSecureAccountStore(username);
+
+        } catch (Exception e) {
+            logger.error("Unexpected error while deleting user: " + e.getMessage(), e);
+            throw new SecureAccountException(e.getMessage(), e);
         }
     }
 
@@ -161,12 +137,23 @@ public class DefaultSecureAccountService implements SecureAccountService {
         Assert.notNull(secureAccountRequest);
         Assert.notNull(passwordToEncrypt);
 
-        final Optional<SecureAccount> retrievedSecureAccount = this.getSecureAccount(secureAccountRequest);
-        retrievedSecureAccount.ifPresent(secureAccount -> {
-            throw new SecureAccountException("Secure account already exists: " + secureAccountRequest.getAccountAlias());
-        });
+        final Optional<String> secureAccountPassword;
 
-        return this.updateSecureAccount(secureAccountRequest, passwordToEncrypt);
+        try {
+            secureAccountPassword = this.secureAccountStore.getSecureAccountPassword(secureAccountRequest);
+            secureAccountPassword.ifPresent(secureAccount -> {
+                throw new SecureAccountException("Secure account already exists: " + secureAccountRequest.getAccountAlias());
+            });
+
+            return this.updateSecureAccount(secureAccountRequest, passwordToEncrypt);
+
+        } catch (Exception e) {
+            if (e instanceof SecureAccountException) {
+                throw SecureAccountException.class.cast(e);
+            }
+
+            throw new SecureAccountException("Unexpected error while creating account: " + e.getMessage(), e);
+        }
     }
 
     @Override
@@ -180,7 +167,9 @@ public class DefaultSecureAccountService implements SecureAccountService {
             if (secureAccountPassword.isPresent()) {
                 final String username = secureAccountRequest.getUsername();
                 final String alias = secureAccountRequest.getAccountAlias();
-                final String secretKey = this.loadOrCreateSecretKey(secureAccountRequest);
+                final KeyStore keyStore = this.keystoreManager.getKeyStore(secureAccountRequest);
+                final String secretKey = this.keystoreManager.getSecretKey(keyStore, secureAccountRequest);
+
                 final String encryptedPassword = secureAccountPassword.get();
                 final String decryptedPassword = this.passwordEncryptor.decryptPassword(secretKey, secureAccountRequest.getMasterPassword(), encryptedPassword);
                 secureAccount = new SecureAccount(username, alias, encryptedPassword, decryptedPassword);
@@ -199,7 +188,7 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
         final KeyStore keyStore;
         try {
-            keyStore = this.loadOrCreateKeyStore(secureAccountRequest);
+            keyStore = this.keystoreManager.getKeyStore(secureAccountRequest);
             final List<String> aliasList = new ArrayList<>();
             final Enumeration<String> aliases = keyStore.aliases();
 
@@ -218,7 +207,8 @@ public class DefaultSecureAccountService implements SecureAccountService {
     public SecureAccount updateSecureAccount(final SecureAccountRequest secureAccountRequest, final String passwordToUpdate) {
 
         try {
-            final String encodedSecretKey = this.loadOrCreateSecretKey(secureAccountRequest);
+            final KeyStore keyStore = this.keystoreManager.getKeyStore(secureAccountRequest);
+            final String encodedSecretKey = this.keystoreManager.getSecretKey(keyStore, secureAccountRequest);
             logger.info("Resolved secret key: {}", encodedSecretKey);
 
             final String masterPassword = secureAccountRequest.getMasterPassword();
@@ -244,9 +234,9 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
         if (secureAccount.isPresent()) {
             try {
-                final KeyStore keyStore = this.loadOrCreateKeyStore(secureAccountRequest);
+                final KeyStore keyStore = this.keystoreManager.getKeyStore(secureAccountRequest);
                 keyStore.deleteEntry(secureAccountRequest.getAccountAlias());
-                this.saveKeyStore(secureAccountRequest, keyStore);
+                this.keystoreManager.saveKeyStore(secureAccountRequest, keyStore);
                 this.secureAccountStore.deleteSecureAccountPassword(secureAccountRequest);
 
             } catch (Exception e) {
@@ -257,81 +247,5 @@ public class DefaultSecureAccountService implements SecureAccountService {
         }
 
         return secureAccount;
-    }
-
-    /**
-     * Load or create a secret key for an user on a given account alias found in SecureAccountRequest.
-     * <p>
-     * Reference on Base64 vs Hex encoding since we use hex encoding for secret key:
-     * http://stackoverflow.com/questions/3183841/base64-vs-hex-for-sending-binary-content-over-the-internet-in-xml-doc
-     *
-     * @param secureAccountRequest
-     * @return
-     * @throws Exception
-     */
-    private String loadOrCreateSecretKey(final SecureAccountRequest secureAccountRequest) throws Exception {
-
-        final KeyStore keyStore = this.loadOrCreateKeyStore(secureAccountRequest);
-        final String masterPassword = secureAccountRequest.getMasterPassword();
-        final KeyStore.PasswordProtection keyPassword = new KeyStore.PasswordProtection(masterPassword.toCharArray());
-        final String alias = secureAccountRequest.getAccountAlias();
-        KeyStore.Entry secretKeyEntry = keyStore.getEntry(alias, keyPassword);
-        SecretKey secretKey;
-
-        if (secretKeyEntry == null) {
-            secretKey = KeyGenerator.getInstance("AES").generateKey();
-            secretKeyEntry = new KeyStore.SecretKeyEntry(secretKey);
-            keyStore.setEntry(secureAccountRequest.getAccountAlias(), secretKeyEntry, keyPassword);
-            this.saveKeyStore(secureAccountRequest, keyStore);
-        } else {
-            secretKey = ((KeyStore.SecretKeyEntry) secretKeyEntry).getSecretKey();
-        }
-
-        return new String(Hex.encode(secretKey.getEncoded()));
-    }
-
-    private void saveKeyStore(final SecureAccountRequest secureAccountRequest, final KeyStore keyStore) throws Exception {
-        Assert.notNull(secureAccountRequest);
-        Assert.notNull(secureAccountRequest.getUsername());
-        Assert.notNull(keyStore);
-
-        final File keyStoreFile = this.createKeyStoreFile(secureAccountRequest.getUsername());
-        try (final FileOutputStream stream = new FileOutputStream(keyStoreFile)) {
-            keyStore.store(stream, secureAccountRequest.getMasterPassword().toCharArray());
-        }
-    }
-
-    /**
-     * Load or create a keystore per user to store secret keys for each account alias.
-     *
-     * @param secureAccountRequest
-     * @return
-     */
-    private KeyStore loadOrCreateKeyStore(final SecureAccountRequest secureAccountRequest) throws Exception {
-        Assert.notNull(secureAccountRequest.getUsername());
-        Assert.notNull(secureAccountRequest.getMasterPassword());
-
-        final KeyStore keyStore = KeyStore.getInstance("JCEKS");
-        final File keystoreFile = this.createKeyStoreFile(secureAccountRequest.getUsername());
-        final char[] masterPasswordArr = secureAccountRequest.getMasterPassword().toCharArray();
-
-        if (keystoreFile.exists()) {
-            try (final FileInputStream fis = new FileInputStream(keystoreFile)) {
-                keyStore.load(fis, masterPasswordArr);
-            }
-
-        } else {
-            try (final FileOutputStream fos = new FileOutputStream(keystoreFile)) {
-                keyStore.load(null, null);
-                keyStore.store(fos, masterPasswordArr);
-            }
-        }
-
-        return keyStore;
-    }
-
-    private File createKeyStoreFile(final String username) {
-        Assert.notNull(username);
-        return new File(this.keystoreLocation, username + KEYSTORE_EXT);
     }
 }

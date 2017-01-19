@@ -18,6 +18,13 @@ public class SecureAccount {
 
     private final String password;
 
+    public SecureAccount(final String username, final String accountAlias, final String encryptedPassword, final String password) {
+        this.username = username;
+        this.accountAlias = accountAlias;
+        this.encryptedPassword = encryptedPassword;
+        this.password = password;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
