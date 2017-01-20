@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +28,8 @@ public class SecureAccountController {
 
     private static final Logger logger = LoggerFactory.getLogger(SecureAccountController.class);
 
+    private static final String MASTER_PASSWORD_HEADER_KEY = "x-pk-master-password";
+
     @Autowired
     private SecureAccountService secureAccountService;
 
@@ -39,20 +42,20 @@ public class SecureAccountController {
      */
     @RequestMapping(value = "", method = RequestMethod.POST)
     public ResponseEntity<SecureAccountResponse> createUser(@RequestParam("username") final String username,
-                                                            @RequestParam("masterPassword") String masterPassword) {
+                                                            @RequestHeader(MASTER_PASSWORD_HEADER_KEY) String masterPassword) {
 
         logger.debug("Create user: {}", username);
 
         final SecureAccount defaultSecureAccount = this.secureAccountService.createUser(username, masterPassword);
 
-        final String message = username + " is created successfully with a default account alias - default/password.";
+        final String message = username + " is created successfully with a default account alias.";
         final SecureAccountResponse secureAccountResponse = new SecureAccountResponse(message, defaultSecureAccount);
         return ResponseEntity.ok(secureAccountResponse);
     }
 
     @RequestMapping(value = "/{username}/markDelete", method = RequestMethod.DELETE)
     public ResponseEntity<String> markDeleteUser(@PathVariable("username") final String username,
-                                                 @RequestParam("masterPassword") String masterPassword) {
+                                                 @RequestHeader(MASTER_PASSWORD_HEADER_KEY) String masterPassword) {
 
         logger.debug("Mark delete user: {}", username);
 
@@ -69,7 +72,7 @@ public class SecureAccountController {
      */
     @RequestMapping(value = "/{username}", method = RequestMethod.DELETE)
     public ResponseEntity<String> deleteUser(@PathVariable("username") final String username,
-                                             @RequestParam("masterPassword") final String masterPassword) {
+                                             @RequestHeader(MASTER_PASSWORD_HEADER_KEY) final String masterPassword) {
 
         logger.debug("Delete user: {}", username);
 
@@ -80,16 +83,17 @@ public class SecureAccountController {
 
     @RequestMapping(value = "/{username}/accounts", method = RequestMethod.POST)
     public ResponseEntity<SecureAccountResponse> createSecureAccount(@PathVariable final String username,
+                                                                     @RequestHeader(MASTER_PASSWORD_HEADER_KEY) final String masterPassword,
                                                                      @RequestParam("accountAlias") final String accountAlias,
                                                                      @RequestParam("accountUsername") final String accountUsername,
-                                                                     @RequestParam("masterPassword") final String masterPassword,
                                                                      @RequestParam("password") final String passwordToEncrypt) {
 
         final SecureAccountRequest request = SecureAccountRequest.builder()
                 .username(username)
                 .masterPassword(masterPassword)
                 .accountUsername(accountUsername)
-                .accountAlias(accountAlias).build();
+                .accountAlias(accountAlias)
+                .password(passwordToEncrypt).build();
         logger.debug("Create secure account: {}", request);
 
         final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(request);
@@ -110,7 +114,7 @@ public class SecureAccountController {
     @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.GET)
     public ResponseEntity<?> getSecureAccount(@PathVariable final String username,
                                               @PathVariable final String accountAlias,
-                                              @RequestParam("masterPassword") final String masterPassword) {
+                                              @RequestHeader(MASTER_PASSWORD_HEADER_KEY) final String masterPassword) {
 
         final SecureAccountRequest request = SecureAccountRequest.builder()
                 .username(username)
@@ -129,7 +133,7 @@ public class SecureAccountController {
 
     @RequestMapping(value = "/{username}/accounts", method = RequestMethod.GET)
     public ResponseEntity<?> getSecureAccountAliases(@PathVariable final String username,
-                                                     @RequestParam("masterPassword") final String masterPassword) {
+                                                     @RequestHeader(MASTER_PASSWORD_HEADER_KEY) final String masterPassword) {
 
         logger.debug("Get secure account aliases: {}", username);
 
@@ -144,7 +148,7 @@ public class SecureAccountController {
     @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.POST)
     public ResponseEntity<SecureAccount> updateSecureAccount(@PathVariable final String username,
                                                              @PathVariable final String accountAlias,
-                                                             @RequestParam("masterPassword") final String masterPassword,
+                                                             @RequestHeader(MASTER_PASSWORD_HEADER_KEY) final String masterPassword,
                                                              @RequestParam("accountUsername") final String accountUsername,
                                                              @RequestParam("password") final String passwordToUpdate) {
 
@@ -171,7 +175,7 @@ public class SecureAccountController {
     @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.DELETE)
     public ResponseEntity<?> deleteSecureAccount(@PathVariable final String username,
                                                  @PathVariable final String accountAlias,
-                                                 @RequestParam("masterPassword") final String masterPassword) {
+                                                 @RequestHeader(MASTER_PASSWORD_HEADER_KEY) final String masterPassword) {
 
         final SecureAccountRequest request = SecureAccountRequest.builder()
                 .username(username)
