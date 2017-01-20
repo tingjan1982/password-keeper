@@ -2,6 +2,7 @@ package io.eion.security.passkeeper.service;
 
 import io.eion.security.passkeeper.service.bean.SecureAccountRequest;
 import io.eion.security.passkeeper.service.exception.SecureAccountException;
+import io.eion.security.passkeeper.service.exception.SecureAccountNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.codec.Hex;
 import org.springframework.stereotype.Service;
@@ -73,7 +74,7 @@ public class DefaultKeystoreManager implements KeystoreManager {
         final File keyStoreFile = this.createKeyStoreFile(username);
 
         if (!keyStoreFile.exists()) {
-            throw new SecureAccountException("User does not exist: " + username);
+            throw new SecureAccountNotFoundException("User does not exist: " + username);
         }
 
         final KeyStore keyStore = KeyStore.getInstance("JCEKS");

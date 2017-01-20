@@ -211,6 +211,11 @@ public class DefaultSecureAccountService implements SecureAccountService {
             return aliasList;
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
+
+            if (SecureAccountException.class.isAssignableFrom(e.getClass())) {
+                throw SecureAccountException.class.cast(e);
+            }
+
             throw new SecureAccountException(e.getMessage(), e);
         }
     }
