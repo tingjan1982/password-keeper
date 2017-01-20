@@ -21,7 +21,7 @@ import java.security.KeyStore;
 @Service
 public class DefaultKeystoreManager implements KeystoreManager {
 
-    private static final String KEYSTORE_EXT = ".jceks";
+    public static final String KEYSTORE_EXT = ".jceks";
 
     @Value("${security.keystore.location}")
     private String keystoreLocation;

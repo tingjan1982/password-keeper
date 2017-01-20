@@ -28,7 +28,7 @@ public class SecureAccountController {
 
     private static final Logger logger = LoggerFactory.getLogger(SecureAccountController.class);
 
-    private static final String MASTER_PASSWORD_HEADER_KEY = "x-pk-master-password";
+    static final String MASTER_PASSWORD_HEADER_KEY = "x-pk-master-password";
 
     @Autowired
     private SecureAccountService secureAccountService;

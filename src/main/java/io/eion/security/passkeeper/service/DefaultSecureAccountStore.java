@@ -32,11 +32,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * Created by vagrant on 9/14/16.
  */
 @Service
-class DefaultSecureAccountStore implements SecureAccountStore {
+public class DefaultSecureAccountStore implements SecureAccountStore {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultSecureAccountStore.class);
 
-    private static final String ACCOUNT_EXT = ".account";
+    public static final String ACCOUNT_EXT = ".account";
 
     @Value("${security.keystore.location}")
     private String keystoreLocation;
