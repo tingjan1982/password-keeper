@@ -73,7 +73,7 @@ public class DefaultKeystoreManager implements KeystoreManager {
         final File keyStoreFile = this.createKeyStoreFile(username);
 
         if (!keyStoreFile.exists()) {
-            throw new SecureAccountException("User does not already exist: " + username);
+            throw new SecureAccountException("User does not exist: " + username);
         }
 
         final KeyStore keyStore = KeyStore.getInstance("JCEKS");

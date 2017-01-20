@@ -81,13 +81,18 @@ public class SecureAccountController {
     @RequestMapping(value = "/{username}/accounts", method = RequestMethod.POST)
     public ResponseEntity<SecureAccountResponse> createSecureAccount(@PathVariable final String username,
                                                                      @RequestParam("accountAlias") final String accountAlias,
+                                                                     @RequestParam("accountUsername") final String accountUsername,
                                                                      @RequestParam("masterPassword") final String masterPassword,
                                                                      @RequestParam("password") final String passwordToEncrypt) {
 
-        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        final SecureAccountRequest request = SecureAccountRequest.builder()
+                .username(username)
+                .masterPassword(masterPassword)
+                .accountUsername(accountUsername)
+                .accountAlias(accountAlias).build();
         logger.debug("Create secure account: {}", request);
 
-        final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(request, passwordToEncrypt);
+        final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(request);
 
         final SecureAccountResponse secureAccountResponse = new SecureAccountResponse("Secure account is created.", secureAccount);
         return ResponseEntity.ok(secureAccountResponse);
@@ -107,7 +112,10 @@ public class SecureAccountController {
                                               @PathVariable final String accountAlias,
                                               @RequestParam("masterPassword") final String masterPassword) {
 
-        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        final SecureAccountRequest request = SecureAccountRequest.builder()
+                .username(username)
+                .masterPassword(masterPassword)
+                .accountAlias(accountAlias).build();
         logger.debug("Get secure account: {}", request);
 
         final Optional<SecureAccount> secureAccount = this.secureAccountService.getSecureAccount(request);
@@ -125,7 +133,9 @@ public class SecureAccountController {
 
         logger.debug("Get secure account aliases: {}", username);
 
-        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, null);
+        final SecureAccountRequest request = SecureAccountRequest.builder()
+                .username(username)
+                .masterPassword(masterPassword).build();
         final List<String> secureAccountAliases = this.secureAccountService.getSecureAccountAliases(request);
 
         return ResponseEntity.ok(secureAccountAliases);
@@ -133,14 +143,20 @@ public class SecureAccountController {
 
     @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.POST)
     public ResponseEntity<SecureAccount> updateSecureAccount(@PathVariable final String username,
-                                              @PathVariable final String accountAlias,
-                                              @RequestParam("masterPassword") final String masterPassword,
-                                              @RequestParam("password") final String passwordToUpdate) {
+                                                             @PathVariable final String accountAlias,
+                                                             @RequestParam("masterPassword") final String masterPassword,
+                                                             @RequestParam("accountUsername") final String accountUsername,
+                                                             @RequestParam("password") final String passwordToUpdate) {
 
-        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        final SecureAccountRequest request = SecureAccountRequest.builder()
+                .username(username)
+                .masterPassword(masterPassword)
+                .accountAlias(accountAlias)
+                .accountUsername(accountUsername)
+                .password(passwordToUpdate).build();
         logger.debug("Update secure account: {}", request);
 
-        final SecureAccount secureAccount = this.secureAccountService.updateSecureAccount(request, passwordToUpdate);
+        final SecureAccount secureAccount = this.secureAccountService.updateSecureAccount(request);
         return ResponseEntity.ok(secureAccount);
     }
 
@@ -157,7 +173,10 @@ public class SecureAccountController {
                                                  @PathVariable final String accountAlias,
                                                  @RequestParam("masterPassword") final String masterPassword) {
 
-        final SecureAccountRequest request = new SecureAccountRequest(username, masterPassword, accountAlias);
+        final SecureAccountRequest request = SecureAccountRequest.builder()
+                .username(username)
+                .masterPassword(masterPassword)
+                .accountAlias(accountAlias).build();
         logger.debug("Delete secure account: {}", request);
 
         final Optional<SecureAccount> secureAccount = this.secureAccountService.deleteSecureAccount(request);

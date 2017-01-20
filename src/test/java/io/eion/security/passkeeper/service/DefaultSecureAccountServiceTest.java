@@ -51,7 +51,7 @@ public class DefaultSecureAccountServiceTest {
 
         this.secureAccountService.deleteUser("dummy", "dummy password");
 
-        final int fileCountAfter= keystoreDirectory.listFiles((dir, name) -> name.startsWith("dummy")).length;
+        final int fileCountAfter = keystoreDirectory.listFiles((dir, name) -> name.startsWith("dummy")).length;
         assertEquals(0, fileCountAfter);
     }
 
@@ -59,8 +59,9 @@ public class DefaultSecureAccountServiceTest {
     @Test
     public void testCreateSecureAccount() throws Exception {
 
-        final SecureAccountRequest secureAccountRequest = new SecureAccountRequest("joelin", "master", "gc");
-        final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(secureAccountRequest, "password");
+        final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()
+                .username("joelin").masterPassword("master").accountAlias("gc").build();
+        final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(secureAccountRequest);
 
         assertEquals("joelin", secureAccount.getUsername());
         assertEquals("gc", secureAccount.getAccountAlias());
@@ -71,8 +72,9 @@ public class DefaultSecureAccountServiceTest {
     @Test
     public void getSecureAccount() throws Exception {
 
-        final SecureAccountRequest secureAccountRequest = new SecureAccountRequest("secure", "this is netflix", "bigblue");
-        this.secureAccountService.createSecureAccount(secureAccountRequest, "1qaz2wsx");
+        final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()
+                .username("secure").masterPassword("this is netflix").accountAlias("bigblue").build();
+        this.secureAccountService.createSecureAccount(secureAccountRequest);
 
         final Optional<SecureAccount> retrievedSecureAccountOptional = this.secureAccountService.getSecureAccount(secureAccountRequest);
         assertTrue(retrievedSecureAccountOptional.isPresent());
@@ -88,7 +90,6 @@ public class DefaultSecureAccountServiceTest {
     public void updateSecureAccount() throws Exception {
 
     }
-
 
 
 }

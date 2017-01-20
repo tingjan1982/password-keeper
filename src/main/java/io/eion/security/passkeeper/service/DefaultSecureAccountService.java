@@ -41,6 +41,8 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
     private static final String DEFAULT_ACCOUNT = "default";
 
+    private static final String DEFAULT_USER_NAME = "username";
+
     private static final String DEFAULT_PASSWORD = "password";
 
     @Value("${security.delete.delay}")
@@ -64,10 +66,15 @@ public class DefaultSecureAccountService implements SecureAccountService {
     @Override
     public SecureAccount createUser(final String username, final String masterPassword) {
 
-        final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, DEFAULT_ACCOUNT);
+        final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()
+                .username(username)
+                .masterPassword(masterPassword)
+                .accountUsername(DEFAULT_USER_NAME)
+                .accountAlias(DEFAULT_ACCOUNT)
+                .password(DEFAULT_PASSWORD).build();
         try {
             final KeyStore keyStore = this.keystoreManager.createKeyStore(secureAccountRequest);
-            return this.createSecureAccount(secureAccountRequest, DEFAULT_PASSWORD);
+            return this.createSecureAccount(secureAccountRequest);
 
         } catch (Exception e) {
             logger.error("Unexpected error while creating key store: " + e.getMessage(), e);
@@ -122,7 +129,9 @@ public class DefaultSecureAccountService implements SecureAccountService {
         }
 
         try {
-            final SecureAccountRequest secureAccountRequest = new SecureAccountRequest(username, masterPassword, null);
+            final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()
+                    .username(username)
+                    .masterPassword(masterPassword).build();
             this.keystoreManager.deleteKeyStore(secureAccountRequest);
             this.secureAccountStore.deleteSecureAccountStore(username);
 
@@ -133,19 +142,16 @@ public class DefaultSecureAccountService implements SecureAccountService {
     }
 
     @Override
-    public SecureAccount createSecureAccount(final SecureAccountRequest secureAccountRequest, final String passwordToEncrypt) {
+    public SecureAccount createSecureAccount(final SecureAccountRequest secureAccountRequest) {
         Assert.notNull(secureAccountRequest);
-        Assert.notNull(passwordToEncrypt);
-
-        final Optional<String> secureAccountPassword;
 
         try {
-            secureAccountPassword = this.secureAccountStore.getSecureAccountPassword(secureAccountRequest);
-            secureAccountPassword.ifPresent(secureAccount -> {
+            final Optional<SecureAccount> nullableSecureAccount = this.secureAccountStore.getSecureAccount(secureAccountRequest);
+            nullableSecureAccount.ifPresent(secureAccount -> {
                 throw new SecureAccountException("Secure account already exists: " + secureAccountRequest.getAccountAlias());
             });
 
-            return this.updateSecureAccount(secureAccountRequest, passwordToEncrypt);
+            return this.updateSecureAccount(secureAccountRequest);
 
         } catch (Exception e) {
             if (e instanceof SecureAccountException) {
@@ -161,18 +167,24 @@ public class DefaultSecureAccountService implements SecureAccountService {
         Assert.notNull(secureAccountRequest);
 
         try {
-            final Optional<String> secureAccountPassword = this.secureAccountStore.getSecureAccountPassword(secureAccountRequest);
+            final Optional<SecureAccount> nullableSecureAccount = this.secureAccountStore.getSecureAccount(secureAccountRequest);
             SecureAccount secureAccount = null;
 
-            if (secureAccountPassword.isPresent()) {
+            if (nullableSecureAccount.isPresent()) {
+                final SecureAccount retrievedSecureAccount = nullableSecureAccount.get();
+
                 final String username = secureAccountRequest.getUsername();
-                final String alias = secureAccountRequest.getAccountAlias();
                 final KeyStore keyStore = this.keystoreManager.getKeyStore(secureAccountRequest);
                 final String secretKey = this.keystoreManager.getSecretKey(keyStore, secureAccountRequest);
 
-                final String encryptedPassword = secureAccountPassword.get();
+                final String encryptedPassword = retrievedSecureAccount.getEncryptedPassword();
                 final String decryptedPassword = this.passwordEncryptor.decryptPassword(secretKey, secureAccountRequest.getMasterPassword(), encryptedPassword);
-                secureAccount = new SecureAccount(username, alias, encryptedPassword, decryptedPassword);
+                secureAccount = SecureAccount.builder()
+                        .username(username)
+                        .accountAlias(retrievedSecureAccount.getAccountAlias())
+                        .accountUsername(retrievedSecureAccount.getAccountUsername())
+                        .encryptedPassword(encryptedPassword)
+                        .password(decryptedPassword).build();
             }
 
             return Optional.ofNullable(secureAccount);
@@ -204,7 +216,7 @@ public class DefaultSecureAccountService implements SecureAccountService {
     }
 
     @Override
-    public SecureAccount updateSecureAccount(final SecureAccountRequest secureAccountRequest, final String passwordToUpdate) {
+    public SecureAccount updateSecureAccount(final SecureAccountRequest secureAccountRequest) {
 
         try {
             final KeyStore keyStore = this.keystoreManager.getKeyStore(secureAccountRequest);
@@ -212,10 +224,16 @@ public class DefaultSecureAccountService implements SecureAccountService {
             logger.info("Resolved secret key: {}", encodedSecretKey);
 
             final String masterPassword = secureAccountRequest.getMasterPassword();
-            final String encryptPassword = this.passwordEncryptor.encryptPassword(encodedSecretKey, masterPassword, passwordToUpdate);
+            final String password = secureAccountRequest.getPassword();
+            final String encryptPassword = this.passwordEncryptor.encryptPassword(encodedSecretKey, masterPassword, password);
             logger.info("Encrypted password: {}", encryptPassword);
 
-            final SecureAccount secureAccount = new SecureAccount(secureAccountRequest.getUsername(), secureAccountRequest.getAccountAlias(), encryptPassword, passwordToUpdate);
+            final SecureAccount secureAccount = SecureAccount.builder()
+                    .username(secureAccountRequest.getUsername())
+                    .accountAlias(secureAccountRequest.getAccountAlias())
+                    .accountUsername(secureAccountRequest.getAccountUsername())
+                    .encryptedPassword(encryptPassword)
+                    .password(password).build();
             this.secureAccountStore.storeSecureAccount(secureAccount);
 
             return secureAccount;

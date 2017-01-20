@@ -17,13 +17,13 @@ public interface SecureAccountService {
 
     void deleteUser(String username, String masterPassword);
 
-    SecureAccount createSecureAccount(SecureAccountRequest secureAccountRequest, String passwordToEncrypt);
+    SecureAccount createSecureAccount(SecureAccountRequest secureAccountRequest);
 
     Optional<SecureAccount> getSecureAccount(SecureAccountRequest secureAccountRequest);
 
     List<String> getSecureAccountAliases(SecureAccountRequest secureAccountRequest);
 
-    SecureAccount updateSecureAccount(SecureAccountRequest secureAccountRequest, String passwordToUpdate);
+    SecureAccount updateSecureAccount(SecureAccountRequest secureAccountRequest);
 
     Optional<SecureAccount> deleteSecureAccount(SecureAccountRequest secureAccountRequest);
 

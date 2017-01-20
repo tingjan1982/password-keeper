@@ -1,6 +1,7 @@
 package io.eion.security.passkeeper.service;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.eion.security.passkeeper.service.bean.SecureAccount;
 import io.eion.security.passkeeper.service.bean.SecureAccountRequest;
 import io.eion.security.passkeeper.service.exception.SecureAccountException;
@@ -18,6 +19,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -54,9 +56,9 @@ class DefaultSecureAccountStore implements SecureAccountStore {
 
         final String username = secureAccount.getUsername();
         final File secureAccountFile = this.createSecureAccountFile(username);
-        Map<String, String> secureAccountMap = this.loadSecureAccountMap(username, secureAccountFile);
+        final Map<String, SecureAccount> secureAccountMap = this.loadSecureAccountMap(username, secureAccountFile);
         final String accountAlias = secureAccount.getAccountAlias();
-        secureAccountMap.put(accountAlias, secureAccount.getEncryptedPassword());
+        secureAccountMap.put(accountAlias, secureAccount);
 
         this.saveSecureAccountFile(username, secureAccountFile, secureAccountMap);
     }
@@ -77,14 +79,14 @@ class DefaultSecureAccountStore implements SecureAccountStore {
     }
 
     @Override
-    public Optional<String> getSecureAccountPassword(final SecureAccountRequest secureAccountRequest) throws Exception {
+    public Optional<SecureAccount> getSecureAccount(final SecureAccountRequest secureAccountRequest) throws Exception {
         Assert.notNull(secureAccountRequest);
 
         final String username = secureAccountRequest.getUsername();
         final File secureAccountFile = this.createSecureAccountFile(username);
-        final Map<String, String> secureAccountMap = this.loadSecureAccountMap(username, secureAccountFile);
-        String secureAccountPassword = secureAccountMap.get(secureAccountRequest.getAccountAlias());
-        return Optional.ofNullable(secureAccountPassword);
+        final Map<String, SecureAccount> secureAccountMap = this.loadSecureAccountMap(username, secureAccountFile);
+        final SecureAccount secureAccount = secureAccountMap.get(secureAccountRequest.getAccountAlias());
+        return Optional.ofNullable(secureAccount);
     }
 
     @Override
@@ -93,16 +95,16 @@ class DefaultSecureAccountStore implements SecureAccountStore {
 
         final String username = secureAccountRequest.getUsername();
         final File secureAccountFile = this.createSecureAccountFile(username);
-        final Map<String, String> secureAccountMap = this.loadSecureAccountMap(username, secureAccountFile);
-        final String removed = secureAccountMap.remove(secureAccountRequest.getAccountAlias());
-        logger.info("Removed secure account: {}, encrypted: {}", secureAccountRequest.getAccountAlias(), removed);
+        final Map<String, SecureAccount> secureAccountMap = this.loadSecureAccountMap(username, secureAccountFile);
+        final SecureAccount removed = secureAccountMap.remove(secureAccountRequest.getAccountAlias());
+        logger.info("Removed secure account: {}", removed);
 
         this.saveSecureAccountFile(username, secureAccountFile, secureAccountMap);
     }
 
-    private Map<String, String> loadSecureAccountMap(final String username, final File secureAccountFile) throws Exception {
+    private Map<String, SecureAccount> loadSecureAccountMap(final String username, final File secureAccountFile) throws Exception {
         Assert.notNull(secureAccountFile);
-        Map<String, String> secureAccountMap = new HashMap<>();
+        Map<String, SecureAccount> secureAccountMap = new HashMap<>();
 
         if (secureAccountFile.exists()) {
             final ReentrantReadWriteLock lock = this.obtainReadWriteLock(username);
@@ -114,7 +116,8 @@ class DefaultSecureAccountStore implements SecureAccountStore {
                 final String secureAccountJSON = IOUtils.toString(is);
 
                 if (!StringUtils.isEmpty(secureAccountJSON)) {
-                    secureAccountMap = this.gson.fromJson(secureAccountJSON, Map.class);
+                    Type mapType = new TypeToken<Map<String, SecureAccount>>() { }.getType();
+                    secureAccountMap = this.gson.fromJson(secureAccountJSON, mapType);
                 }
             }
 
@@ -124,7 +127,7 @@ class DefaultSecureAccountStore implements SecureAccountStore {
         return secureAccountMap;
     }
 
-    private void saveSecureAccountFile(final String username, final File secureAccountFile, final Map<String, String> secureAccountMap) throws IOException {
+    private void saveSecureAccountFile(final String username, final File secureAccountFile, final Map<String, SecureAccount> secureAccountMap) throws IOException {
         Assert.notNull(secureAccountFile);
         Assert.notNull(secureAccountMap);
 
