@@ -39,11 +39,11 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultSecureAccountService.class);
 
-    private static final String DEFAULT_ACCOUNT = "default";
+    static final String DEFAULT_ACCOUNT = "default";
 
-    private static final String DEFAULT_USER_NAME = "username";
+    static final String DEFAULT_USER_NAME = "username";
 
-    private static final String DEFAULT_PASSWORD = "password";
+    static final String DEFAULT_PASSWORD = "password";
 
     @Value("${security.delete.delay}")
     private int deleteDelay;
@@ -77,8 +77,13 @@ public class DefaultSecureAccountService implements SecureAccountService {
             return this.createSecureAccount(secureAccountRequest);
 
         } catch (Exception e) {
-            logger.error("Unexpected error while creating key store: " + e.getMessage(), e);
-            throw new SecureAccountException(e.getMessage(), e);
+            if (e instanceof SecureAccountException) {
+                throw SecureAccountException.class.cast(e);
+            }
+
+            final String errorMsg = "Unexpected error while creating key store: " + e.getMessage();
+            logger.error(errorMsg, e);
+            throw new SecureAccountException(errorMsg, e);
         }
     }
 

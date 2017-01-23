@@ -2,6 +2,7 @@ package io.eion.security.passkeeper.service;
 
 import io.eion.security.passkeeper.service.bean.SecureAccount;
 import io.eion.security.passkeeper.service.bean.SecureAccountRequest;
+import io.eion.security.passkeeper.service.exception.SecureAccountNotFoundException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,12 +10,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.io.File;
 import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Created by vagrant on 9/13/16.
@@ -23,6 +23,10 @@ import static org.junit.Assert.assertTrue;
 @SpringBootTest
 public class DefaultSecureAccountServiceTest {
 
+    private static final String USER_NAME = DefaultSecureAccountServiceTest.class.getSimpleName();
+
+    private static final String MASTER_PASSWORD = "password";
+
     @Autowired
     private DefaultSecureAccountService secureAccountService;
 
@@ -30,66 +34,56 @@ public class DefaultSecureAccountServiceTest {
     private String keystoreLocation;
 
     @Test
-    public void testCreateUser() throws Exception {
-
-        final SecureAccount defaultSecureAccount = this.secureAccountService.createUser("dummy", "dummy password");
-
-        assertEquals("default", defaultSecureAccount.getAccountAlias());
+    public void testCRUD() {
+        final SecureAccount defaultSecureAccount = this.secureAccountService.createUser(USER_NAME, MASTER_PASSWORD);
+        assertEquals(DefaultSecureAccountService.DEFAULT_ACCOUNT, defaultSecureAccount.getAccountAlias());
+        assertEquals(DefaultSecureAccountService.DEFAULT_USER_NAME, defaultSecureAccount.getAccountUsername());
         assertNotNull(defaultSecureAccount.getEncryptedPassword());
-        assertEquals("password", defaultSecureAccount.getPassword());
+        assertEquals(DefaultSecureAccountService.DEFAULT_PASSWORD, defaultSecureAccount.getPassword());
 
-        this.secureAccountService.deleteUser("dummy", "dummy password");
-    }
+        final String accountAlias = "newaccount";
+        final String accountUsername = "a@b.email";
+        final String accountPassword = "dummy";
 
-    @Test
-    public void testDeleteUser() throws Exception {
+        final SecureAccountRequest newSecureAccount = SecureAccountRequest.builder()
+                .username(USER_NAME)
+                .masterPassword(MASTER_PASSWORD)
+                .accountAlias(accountAlias)
+                .accountUsername(accountUsername)
+                .password(accountPassword).build();
 
-        final File keystoreDirectory = new File(this.keystoreLocation);
-        this.secureAccountService.createUser("dummy", "dummy password");
-        final int fileCountBefore = keystoreDirectory.listFiles((dir, name) -> name.startsWith("dummy")).length;
-        assertEquals(2, fileCountBefore);
-
-        this.secureAccountService.deleteUser("dummy", "dummy password");
-
-        final int fileCountAfter = keystoreDirectory.listFiles((dir, name) -> name.startsWith("dummy")).length;
-        assertEquals(0, fileCountAfter);
-    }
-
-
-    @Test
-    public void testCreateSecureAccount() throws Exception {
-
-        final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()
-                .username("joelin").masterPassword("master").accountAlias("gc").build();
-        final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(secureAccountRequest);
-
-        assertEquals("joelin", secureAccount.getUsername());
-        assertEquals("gc", secureAccount.getAccountAlias());
+        final SecureAccount secureAccount = this.secureAccountService.createSecureAccount(newSecureAccount);
+        assertEquals(USER_NAME, secureAccount.getUsername());
+        assertEquals(accountAlias, secureAccount.getAccountAlias());
+        assertEquals(accountUsername, secureAccount.getAccountUsername());
+        assertEquals(accountPassword, secureAccount.getPassword());
         assertNotNull(secureAccount.getEncryptedPassword());
-        assertEquals("password", secureAccount.getPassword());
-    }
 
-    @Test
-    public void getSecureAccount() throws Exception {
-
-        final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()
-                .username("secure").masterPassword("this is netflix").accountAlias("bigblue").build();
-        this.secureAccountService.createSecureAccount(secureAccountRequest);
-
-        final Optional<SecureAccount> retrievedSecureAccountOptional = this.secureAccountService.getSecureAccount(secureAccountRequest);
-        assertTrue(retrievedSecureAccountOptional.isPresent());
-
-        final SecureAccount retrievedSecureAccount = retrievedSecureAccountOptional.get();
-        assertEquals("secure", retrievedSecureAccount.getUsername());
-        assertEquals("bigblue", retrievedSecureAccount.getAccountAlias());
+        final Optional<SecureAccount> nullableSecureAccount = this.secureAccountService.getSecureAccount(newSecureAccount);
+        final SecureAccount retrievedSecureAccount = nullableSecureAccount.get();
+        assertEquals(USER_NAME, retrievedSecureAccount.getUsername());
+        assertEquals(accountAlias, retrievedSecureAccount.getAccountAlias());
+        assertEquals(accountUsername, retrievedSecureAccount.getAccountUsername());
         assertNotNull(retrievedSecureAccount.getEncryptedPassword());
-        assertEquals("1qaz2wsx", retrievedSecureAccount.getPassword());
+        assertEquals(accountPassword, retrievedSecureAccount.getPassword());
+
+        final SecureAccountRequest updateSecureAccount = SecureAccountRequest.builder()
+                .username(USER_NAME)
+                .masterPassword(MASTER_PASSWORD)
+                .accountAlias(accountAlias)
+                .accountUsername(accountUsername)
+                .password("updated").build();
+        final SecureAccount updatedSecureAccount = this.secureAccountService.updateSecureAccount(updateSecureAccount);
+        assertEquals("updated", updatedSecureAccount.getPassword());
+
+        this.secureAccountService.markDeleteUser(USER_NAME, MASTER_PASSWORD);
+        this.secureAccountService.deleteUser(USER_NAME, MASTER_PASSWORD);
+
+        try {
+            this.secureAccountService.getSecureAccountAliases(newSecureAccount);
+            fail();
+        } catch (SecureAccountNotFoundException e) {
+            // expected
+        }
     }
-
-    @Test
-    public void updateSecureAccount() throws Exception {
-
-    }
-
-
 }
