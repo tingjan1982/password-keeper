@@ -2,14 +2,12 @@
 
 # password-keeper
 
-> A REST API for managing passwords in a secured fashion. 2
+> A REST API for managing passwords in a secured fashion.
 
 ## Features
 
-* Dockerized container
-* Automatic keystore location provisioning via EventListener.
-    * external application logging (todo)
-    * remote debugging (todo)
+* Secure password management using Java Cryptography Extension Key Store secret key as salt and used by bcrypt hashing function to encrypt password.
+* User can access all of his or her accounts by using a single master password which is protected by SSL when sending over the wire.
  
 ## Build Flow
 
@@ -51,5 +49,5 @@ sudo docker stop `sudo docker ps -f image=joelin/passkeeper -q`
 
 ## Reference
 
-Volume API - http://stackoverflow.com/questions/18496940/how-to-deal-with-persistent-storage-e-g-databases-in-docker
-Docker volume information - http://stackoverflow.com/questions/27977001/what-happen-to-docker-volume-on-deletion-of-container
+* Volume API - http://stackoverflow.com/questions/18496940/how-to-deal-with-persistent-storage-e-g-databases-in-docker
+* Docker volume information - http://stackoverflow.com/questions/27977001/what-happen-to-docker-volume-on-deletion-of-container
