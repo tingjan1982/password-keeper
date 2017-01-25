@@ -13,7 +13,9 @@ import org.springframework.test.context.junit4.SpringRunner;
 import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
@@ -32,6 +34,19 @@ public class DefaultSecureAccountServiceTest {
 
     @Value("${security.keystore.location}")
     private String keystoreLocation;
+
+    @Test
+    public void testAuthenticateUser() throws Exception {
+
+        this.secureAccountService.createUser(USER_NAME, MASTER_PASSWORD);
+        final boolean shouldExist = this.secureAccountService.authenticateUser(USER_NAME, MASTER_PASSWORD);
+        assertTrue(shouldExist);
+
+        this.secureAccountService.markDeleteUser(USER_NAME, MASTER_PASSWORD);
+        this.secureAccountService.deleteUser(USER_NAME, MASTER_PASSWORD);
+        final boolean shouldNotExist = this.secureAccountService.authenticateUser(USER_NAME, MASTER_PASSWORD);
+        assertFalse(shouldNotExist);
+    }
 
     @Test
     public void testCRUD() {

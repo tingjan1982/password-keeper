@@ -64,6 +64,22 @@ public class DefaultSecureAccountService implements SecureAccountService {
 
 
     @Override
+    public boolean authenticateUser(final String username, final String masterPassword) {
+
+        final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()
+                .username(username)
+                .masterPassword(masterPassword).build();
+
+        try {
+            this.keystoreManager.getKeyStore(secureAccountRequest);
+            return true;
+
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
     public SecureAccount createUser(final String username, final String masterPassword) {
 
         final SecureAccountRequest secureAccountRequest = SecureAccountRequest.builder()

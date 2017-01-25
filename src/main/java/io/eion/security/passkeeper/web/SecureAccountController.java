@@ -34,6 +34,14 @@ public class SecureAccountController {
     private SecureAccountService secureAccountService;
 
 
+    @RequestMapping(value = "/{username}", method = RequestMethod.HEAD)
+    public ResponseEntity<Void> authenticateUser(@PathVariable final String username,
+                                                 @RequestHeader(MASTER_PASSWORD_HEADER_KEY) String masterPassword) {
+
+        final boolean authenticated = this.secureAccountService.authenticateUser(username, masterPassword);
+        return authenticated ? ResponseEntity.accepted().build() : ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
     /**
      * Creates a new user.
      *

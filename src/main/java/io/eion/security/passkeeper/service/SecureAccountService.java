@@ -12,6 +12,8 @@ import java.util.Optional;
  */
 public interface SecureAccountService {
 
+    boolean authenticateUser(String username, String masterPassword);
+
     @WriteOperation
     SecureAccount createUser(String username, String masterPassword);
 
