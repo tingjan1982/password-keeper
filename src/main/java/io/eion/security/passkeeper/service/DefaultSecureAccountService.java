@@ -2,12 +2,14 @@ package io.eion.security.passkeeper.service;
 
 import io.eion.security.passkeeper.service.bean.SecureAccount;
 import io.eion.security.passkeeper.service.bean.SecureAccountRequest;
+import io.eion.security.passkeeper.service.event.UserCreationEvent;
 import io.eion.security.passkeeper.service.exception.SecureAccountException;
 import io.eion.security.passkeeper.service.util.PasswordEncryptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.PeriodicTrigger;
 import org.springframework.stereotype.Service;
@@ -60,6 +62,9 @@ public class DefaultSecureAccountService implements SecureAccountService {
     @Autowired
     private TaskScheduler taskScheduler;
 
+    @Autowired
+    private ApplicationEventPublisher publisher;
+
     private ConcurrentHashMap<String, ScheduledFuture> usersMarkDeleted = new ConcurrentHashMap<>();
 
 
@@ -90,6 +95,7 @@ public class DefaultSecureAccountService implements SecureAccountService {
                 .password(DEFAULT_PASSWORD).build();
         try {
             final KeyStore keyStore = this.keystoreManager.createKeyStore(secureAccountRequest);
+            this.addToMaster(secureAccountRequest);
             return this.createSecureAccount(secureAccountRequest);
 
         } catch (Exception e) {
@@ -101,6 +107,12 @@ public class DefaultSecureAccountService implements SecureAccountService {
             logger.error(errorMsg, e);
             throw new SecureAccountException(errorMsg, e);
         }
+    }
+
+    private void addToMaster(final SecureAccountRequest secureAccountRequest) {
+        Assert.notNull(secureAccountRequest);
+
+        this.publisher.publishEvent(new UserCreationEvent(secureAccountRequest));
     }
 
     /**

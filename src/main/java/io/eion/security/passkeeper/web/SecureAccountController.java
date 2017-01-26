@@ -119,7 +119,7 @@ public class SecureAccountController {
      * @param masterPassword
      * @return
      */
-    @RequestMapping(value = "/{username}/accounts/{accountAlias}", method = RequestMethod.GET)
+    @RequestMapping(value = "/{username}/accounts/{accountAlias:.+}", method = RequestMethod.GET)
     public ResponseEntity<?> getSecureAccount(@PathVariable final String username,
                                               @PathVariable final String accountAlias,
                                               @RequestHeader(MASTER_PASSWORD_HEADER_KEY) final String masterPassword) {
